@@ -33,6 +33,7 @@ class Command
         
         Command* cmd = new Command(name,desc,fuc);
         commands[name] = cmd;
+        return cmd;
         
     }
     string getName(){return name;}
@@ -49,6 +50,14 @@ class Command
     bool hasSubCommands(string cmd)
     {
         return commands.find(cmd) != commands.end();
+    }
+    Command* getSubCommand(string cmd)
+    {
+        if(hasSubCommands(cmd))
+        {
+            return commands[cmd];
+        }
+        return nullptr;
     }
     void excute( vector<string> &args, int i)
     {
@@ -170,6 +179,8 @@ class Shell
        }
        
     }
+    Command* getRootCommand(){return rootCommands;}
+    
     History& getHistory(){return history;}
 };
 
