@@ -2,7 +2,7 @@
 #include <string>
 #include <functional>
 #include <iostream>
-
+#include <memory>
 
 using namespace std;
 /*
@@ -11,19 +11,10 @@ class Command
 {
     string name;
     string desc;
-    unordered_map<string,Command*> commands;
+    unordered_map<string,unique_ptr<Command>> commands;
     function<void()> func;
     public:
     Command(string name,string desc,function<void()> fun):name(name),desc(desc),func(fun){}
-    ~Command(){
-        for(auto cmd:commands)
-        {
-            if(cmd.second)
-            {
-                delete cmd.second;
-            }
-        }
-    }
     Command* addCommand(string name,string desc, function<void()> fuc)
     {
         if(hasSubCommands(name)) {
@@ -31,16 +22,17 @@ class Command
             return nullptr;
         }
         
-        Command* cmd = new Command(name,desc,fuc);
-        commands[name] = cmd;
-        return cmd;
+        unique_ptr<Command> cmd =  make_unique<Command>(name,desc,fuc);
+        Command* ans = cmd.get();
+        commands[name] = std::move(cmd);
+        return ans;
         
     }
     string getName(){return name;}
     string getDesc() {return desc;}
     vector<pair<string,string>> getCommands(){
         vector<pair<string,string>> cmds;
-        for(auto cmd: commands)
+        for(auto &cmd: commands)
         {   
             cmds.emplace_back(cmd.first,cmd.second->getDesc());
             
@@ -55,7 +47,7 @@ class Command
     {
         if(hasSubCommands(cmd))
         {
-            return commands[cmd];
+            return commands[cmd].get();
         }
         return nullptr;
     }
@@ -63,10 +55,8 @@ class Command
     {
         if(func)
         {
-            // not supporting args, as I dont know how to pass them
-            // args from i to last will be arguments of func
             func();
-            cout<<name<<" exited successfully"<<endl;
+            // cout<<name<<" exited successfully"<<endl;
             return;
         }
         if(i>=args.size() || i<0) 
@@ -81,7 +71,7 @@ class Command
         {
             cout<<"invalid args - this command need below arguments -  "<<endl; 
             cout<<"-------------------------------------------------"<<endl;
-            for(auto cmd: commands)
+            for(auto& cmd: commands)
             {   
                     cout<<cmd.first<<" - "<<cmd.second->getDesc()<<endl;
             }
@@ -98,7 +88,7 @@ class History
     History():userIsAt(-1){}
     void addHistory(string line){
         cmdHistory.push_back(line);
-        cout<<"History "<<line<<" added"<<endl;
+        // cout<<"History "<<line<<" added"<<endl;
         userIsAt = cmdHistory.size();
     }
     string getLast()
@@ -152,12 +142,12 @@ class Shell
 {
     History history;
     Parser parser;
-    Command* rootCommands;
+    unique_ptr<Command> rootCommands;
     public:
     Shell()
     {
         vector<string> dummy;
-        rootCommands = new Command("","",nullptr);
+        rootCommands = make_unique<Command>("","",nullptr);
         rootCommands->addCommand("help","show all supported commands",[&](){this->rootCommands->excute(dummy,0);});
 	    Command* showCommand = rootCommands->addCommand("show","show families",nullptr);
 	    showCommand->addCommand("all","show all families",[](){cout<<"showing all families"<<endl;});
@@ -169,6 +159,7 @@ class Shell
         
        vector<string> tokens =  parser.getToken(line);
        if(tokens.size()==0) return;
+       cout<<"> "<<line<<endl;
        if(rootCommands->hasSubCommands(tokens[0]))
        {
            rootCommands->excute(tokens,0);
@@ -179,7 +170,7 @@ class Shell
        }
        
     }
-    Command* getRootCommand(){return rootCommands;}
+    Command* getRootCommand(){return rootCommands.get();}
     
     History& getHistory(){return history;}
 };
@@ -187,14 +178,10 @@ class Shell
 int main() {
 	Shell shell;
 	History& history = shell.getHistory();
-	cout<<" history - "<<history.getLast();
+	// cout<<" history - "<<history.getLast();
 	vector<string> cmds = {"show all","show","show vip","help"};
 	for(auto cmd:cmds)
 	{
 	    shell.excute(cmd);
 	}
-	
-	
-	
-
 }
